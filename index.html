@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Graficar Desigualdad</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    #grafico { width: 100%; height: 600px; }
+  </style>
+</head>
+<body>
+  <h2>Graficador de desigualdades con dos variables</h2>
+  <p>Escribe una desigualdad en formato: <code>y &lt;= 2*x + 3</code> o <code>y &gt; -x + 1</code></p>
+  <input type="text" id="ineq" value="y <= 2*x + 3" style="width: 300px;">
+  <button onclick="graficar()">Graficar</button>
+
+  <div id="grafico"></div>
+
+  <script>
+    function graficar() {
+      const ineq = document.getElementById("ineq").value;
+      const match = ineq.match(/y\s*([<>]=?)\s*(.+)/);
+
+      if (!match) {
+        alert("Formato inválido. Usa algo como: y <= 2*x + 3");
+        return;
+      }
+
+      const operador = match[1];
+      const expresion = match[2];
+      const exprFunc = new Function("x", "return " + expresion);
+
+      const x_vals = [];
+      const y_line = [];
+      const x_min = -10, x_max = 10, paso = 0.1;
+
+      for (let x = x_min; x <= x_max; x += paso) {
+        x_vals.push(x);
+        y_line.push(exprFunc(x));
+      }
+
+      // Pintar región
+      const region_y = operador === "<=" || operador === "<" ? 
+        y_line.map(y => y - 10) : y_line.map(y => y + 10);
+
+      const relleno = {
+        x: [...x_vals, ...x_vals.slice().reverse()],
+        y: [...y_line, ...region_y.reverse()],
+        fill: 'toself',
+        fillcolor: 'rgba(0, 200, 100, 0.3)',
+        type: 'scatter',
+        mode: 'none',
+        name: 'Región válida'
+      };
+
+      const linea = {
+        x: x_vals,
+        y: y_line,
+        mode: 'lines',
+        line: { color: 'blue' },
+        name: 'Frontera'
+      };
+
+      Plotly.newPlot('grafico', [relleno, linea], {
+        margin: { t: 20 },
+        xaxis: { range: [x_min, x_max] },
+        yaxis: { range: [-10, 10] },
+        title: `Desigualdad: ${ineq}`
+      });
+    }
+
+    graficar(); // Grafica inicial
+  </script>
+</body>
+</html>
