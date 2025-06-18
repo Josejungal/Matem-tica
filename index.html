@@ -2,18 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Graficador de Desigualdades</title>
+  <title>Graficador de Inecuaciones con dos variables</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
       margin: 40px;
       background: #f4f4f4;
-      color: #333;
-    }
-    h1 {
-      text-align: center;
-      color: #222;
     }
     .container {
       max-width: 700px;
@@ -23,15 +19,103 @@
       border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    label {
-      display: block;
-      margin: 15px 0 5px;
-      font-weight: bold;
-    }
-    input {
+    h2 { text-align: center; }
+    input, button {
       width: 100%;
       padding: 10px;
+      margin-top: 10px;
       font-size: 16px;
-      margin-bottom: 15px;
       border-radius: 6px;
-      border: 1px
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    #grafico {
+      height: 600px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Graficador de Desigualdades con Dos Variables</h2>
+    <p>Escribe varias desigualdades, una por línea. Ejemplo:</p>
+    <pre>
+2*x + 3*y <= 6
+x - y >= 1
+x >= 0
+y >= 0
+    </pre>
+    <textarea id="input" rows="6" style="width: 100%;">2*x + 3*y <= 6
+x - y >= 1
+x >= 0
+y >= 0</textarea>
+    <button onclick="graficar()">Graficar región</button>
+    <div id="grafico"></div>
+  </div>
+
+  <script>
+    function graficar() {
+      const entrada = document.getElementById("input").value.trim().split('\n');
+      const restricciones = entrada.map(r => r.trim()).filter(r => r.length > 0);
+
+      const operadores = ['<=', '>=', '<', '>'];
+      const parsed = [];
+
+      for (let r of restricciones) {
+        let op = operadores.find(o => r.includes(o));
+        if (!op) {
+          alert("Desigualdad mal escrita: " + r);
+          return;
+        }
+
+        let [lhs, rhs] = r.split(op).map(s => s.trim());
+        parsed.push({ lhs, rhs, op });
+      }
+
+      const xVals = math.range(-10, 10, 0.25).toArray();
+      const yVals = math.range(-10, 10, 0.25).toArray();
+      const puntos = [];
+
+      for (let x of xVals) {
+        for (let y of yVals) {
+          let valido = true;
+          for (let restr of parsed) {
+            let scope = { x, y };
+            let izq = math.evaluate(restr.lhs, scope);
+            let der = math.evaluate(restr.rhs, scope);
+            switch (restr.op) {
+              case '<=': if (!(izq <= der)) valido = false; break;
+              case '>=': if (!(izq >= der)) valido = false; break;
+              case '<':  if (!(izq < der))  valido = false; break;
+              case '>':  if (!(izq > der))  valido = false; break;
+            }
+            if (!valido) break;
+          }
+          if (valido) puntos.push({ x, y });
+        }
+      }
+
+      const scatter = {
+        x: puntos.map(p => p.x),
+        y: puntos.map(p => p.y),
+        mode: 'markers',
+        type: 'scatter',
+        marker: { size: 3, color: 'rgba(40,200,60,0.6)' },
+        name: 'Región Solución'
+      };
+
+      Plotly.newPlot('grafico', [scatter], {
+        xaxis: { title: 'x', range: [-10, 10] },
+        yaxis: { title: 'y', range: [-10, 10] },
+        title: 'Región factible de las desigualdades'
+      });
+    }
+
+    graficar(); // inicial
+  </script>
+</body>
+</html>
