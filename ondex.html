@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resolución por Método Simplex</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    input, button, textarea { width: 100%; padding: 8px; margin-top: 5px; }
+    label { font-weight: bold; display: block; margin-top: 15px; }
+    pre { background: #f4f4f4; padding: 10px; white-space: pre-wrap; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h2>Calculadora del Método Simplex</h2>
+  <label for="objetivo">Función objetivo (ej: max Z = 3x1 + 2x2):</label>
+  <input id="objetivo" placeholder="Ej: max Z = 3x1 + 2x2">
+
+  <label for="restricciones">Restricciones (una por línea, ej: 2x1 + x2 <= 18):</label>
+  <textarea id="restricciones" rows="6" placeholder="Ej:\n2x1 + x2 <= 18\n2x1 + 3x2 <= 42\n3x1 + x2 <= 24"></textarea>
+
+  <button onclick="resolverSimplex()">Resolver por Simplex</button>
+
+  <label>Resultado:</label>
+  <pre id="resultado"></pre>
+
+  <script>
+    function parseExpr(expr) {
+      const terms = expr.match(/[+-]?\s*\d*\.?\d*\s*x\d+/g);
+      const values = [];
+      if (terms) {
+        for (let term of terms) {
+          const match = term.match(/([+-]?\s*\d*\.?\d*)\s*x(\d+)/);
+          let coef = match[1].replace(/\s/g, '');
+          coef = coef === '' || coef === '+' ? 1 : coef === '-' ? -1 : parseFloat(coef);
+          let index = parseInt(match[2]) - 1;
+          values[index] = coef;
+        }
+      }
+      return values;
+    }
+
+    function resolverSimplex() {
+      const objInput = document.getElementById('objetivo').value.toLowerCase();
+      const resInput = document.getElementById('restricciones').value.trim().split('\n');
+      const resultado = document.getElementById('resultado');
+
+      let max = objInput.includes('max');
+      let obj = parseExpr(objInput);
+      let numVars = obj.length;
+
+      let constraints = [];
+      let b = [];
+      let signs = [];
+
+      for (let linea of resInput) {
+        let [izq, signo, der] = linea.match(/(.+)(<=|>=|=)(.+)/).slice(1).map(s => s.trim());
+        constraints.push(parseExpr(izq));
+        b.push(parseFloat(der));
+        signs.push(signo);
+      }
+
+      // Completar con ceros las columnas faltantes
+      for (let i = 0; i < constraints.length; i++) {
+        for (let j = 0; j < numVars; j++) {
+          if (typeof constraints[i][j] === 'undefined') constraints[i][j] = 0;
+        }
+      }
+
+      let tableau = constraints.map((fila, i) => {
+        let slack = Array(constraints.length).fill(0);
+        if (signs[i] === '<=') slack[i] = 1;
+        else if (signs[i] === '>=') slack[i] = -1;
+        return [...fila, ...slack, b[i]];
+      });
+
+      let Z = [...obj, ...Array(constraints.length).fill(0), 0];
+      if (!max) Z = Z.map(v => -v);
+
+      // Simplex iterativo (modo muy simplificado)
+      function pivot(t) {
+        let last = t.length - 1;
+        let pivotCol = t[last].slice(0, -1).reduce((min, val, i, arr) => val < arr[min] ? i : min, 0);
+        if (t[last][pivotCol] >= 0) return t;
+        let ratios = t.slice(0, last).map(r => r[r.length - 1] / r[pivotCol]);
+        let pivotRow = ratios.reduce((min, val, i, arr) => (val > 0 && val < arr[min]) ? i : min, 0);
+        let pivotVal = t[pivotRow][pivotCol];
+        t[pivotRow] = t[pivotRow].map(v => v / pivotVal);
+        for (let i = 0; i <= last; i++) {
+          if (i !== pivotRow) {
+            let factor = t[i][pivotCol];
+            t[i] = t[i].map((v, j) => v - factor * t[pivotRow][j]);
+          }
+        }
+        return t;
+      }
+
+      tableau.push(Z);
+      let iteraciones = 0;
+      while (tableau[tableau.length - 1].slice(0, -1).some(v => v < 0) && iteraciones++ < 20) {
+        tableau = pivot(tableau);
+      }
+
+      const Zopt = tableau[tableau.length - 1][tableau[0].length - 1];
+      const vars = tableau[0].length - 1;
+      const resultados = Array(numVars).fill(0);
+      for (let j = 0; j < numVars; j++) {
+        let columna = tableau.map(f => f[j]);
+        if (columna.filter(x => x === 0).length === columna.length - 1 && columna.includes(1)) {
+          let fila = columna.indexOf(1);
+          resultados[j] = tableau[fila][vars];
+        }
+      }
+
+      resultado.textContent = `Z óptimo = ${Zopt.toFixed(2)}\nVariables: ${resultados.map((v, i) => `x${i + 1} = ${v.toFixed(2)}`).join(', ')}`;
+    }
+  </script>
+</body>
+</html>
