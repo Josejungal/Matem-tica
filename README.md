@@ -2,97 +2,75 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Programación Lineal Gráfica</title>
-  <script src="https://cdn.jsdelivr.net/npm/mathjs@11.8.0/lib/browser/math.js"></script>
+  <title>Resolver Programación Lineal</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-    }
-    input, button {
-      margin: 5px 0;
-      width: 100%;
-      padding: 8px;
-    }
-    canvas {
-      margin-top: 20px;
-      border: 1px solid #ccc;
-    }
+    body { font-family: Arial; margin: 20px; }
+    input, button { padding: 8px; margin: 5px 0; width: 100%; }
+    label { font-weight: bold; display: block; margin-top: 10px; }
+    canvas { margin-top: 20px; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
-  <h2>Calculadora de Programación Lineal (Gráfica)</h2>
-  <p>Ingresa la función objetivo y dos restricciones en forma <strong>Ax + By ≤ / ≥ C</strong></p>
+  <h2>Calculadora de Programación Lineal Gráfica</h2>
 
-  <label>Función objetivo (Ej: 60x + 80y):</label>
-  <input id="objetivo" placeholder="Ej: 60x + 80y">
+  <label for="obj">Función Objetivo (ej: 60x + 80y)</label>
+  <input id="obj" placeholder="Ej: 60x + 80y">
 
-  <label>Tipo (max o min):</label>
-  <input id="tipo" placeholder="max o min">
+  <label for="rest1">Restricción 1 (ej: 4x + 2y <= 100)</label>
+  <input id="rest1" placeholder="Ej: 4x + 2y <= 100">
 
-  <label>Restricción 1:</label>
-  <input id="restriccion1" placeholder="Ej: 4x + 2y <= 100">
+  <label for="rest2">Restricción 2 (ej: 2x + 3y <= 90)</label>
+  <input id="rest2" placeholder="Ej: 2x + 3y <= 90">
 
-  <label>Restricción 2:</label>
-  <input id="restriccion2" placeholder="Ej: 2x + 3y <= 90">
-
-  <button onclick="graficar()">Graficar</button>
+  <button onclick="resolver()">Graficar</button>
 
   <canvas id="grafico" width="600" height="400"></canvas>
 
   <script>
-    function parseRestriccion(expr) {
-      const match = expr.match(/([\d\.\-]*)x\s*([\+\-]\s*[\d\.\-]*)y\s*([<>=]+)\s*([\d\.\-]+)/);
-      if (!match) return null;
-      let [ , A, B, op, C ] = match;
+    function parsear(expr) {
+      const partes = expr.match(/([\d\.\-]*)x\s*([\+\-]\s*[\d\.\-]*)y\s*([<>]=?)\s*([\d\.\-]+)/);
+      if (!partes) return null;
+      let [ , A, B, op, C ] = partes;
       A = parseFloat(A || "1");
       B = parseFloat(B.replace(/\s/g, ""));
       C = parseFloat(C);
       return { A, B, op, C };
     }
 
-    function graficar() {
-      const obj = document.getElementById("objetivo").value;
-      const tipo = document.getElementById("tipo").value.trim().toLowerCase();
-      const r1 = parseRestriccion(document.getElementById("restriccion1").value);
-      const r2 = parseRestriccion(document.getElementById("restriccion2").value);
+    function resolver() {
+      const objText = document.getElementById("obj").value;
+      const r1 = parsear(document.getElementById("rest1").value);
+      const r2 = parsear(document.getElementById("rest2").value);
 
-      if (!r1 || !r2 || !obj || (tipo !== "max" && tipo !== "min")) {
-        alert("Completa todos los campos correctamente.");
+      const objMatch = objText.match(/([\d\.\-]*)x\s*([\+\-]\s*[\d\.\-]*)y/);
+      if (!r1 || !r2 || !objMatch) {
+        alert("Verifica los datos ingresados");
         return;
       }
 
-      // Calcular intersección
-      const A = math.matrix([[r1.A, r1.B], [r2.A, r2.B]]);
-      const b = math.matrix([r1.C, r2.C]);
+      const a = parseFloat(objMatch[1] || "1");
+      const b = parseFloat(objMatch[2].replace(/\s/g, ""));
 
-      let punto;
-      try {
-        punto = math.lusolve(A, b);
-      } catch (err) {
-        alert("No se puede calcular la intersección.");
+      // Resolver intersección
+      const det = r1.A * r2.B - r2.A * r1.B;
+      if (det === 0) {
+        alert("Las restricciones no se cruzan en un punto único");
         return;
       }
 
-      const xSol = punto[0][0];
-      const ySol = punto[1][0];
+      const x = (r1.C * r2.B - r2.C * r1.B) / det;
+      const y = (r1.A * r2.C - r2.A * r1.C) / det;
+      const Z = a * x + b * y;
 
-      // Calcular valor objetivo
-      const coefObj = obj.match(/([\d\.\-]*)x\s*([\+\-]\s*[\d\.\-]*)y/);
-      const a = parseFloat(coefObj[1] || "1");
-      const bObj = parseFloat(coefObj[2].replace(/\s/g, ""));
-      const z = a * xSol + bObj * ySol;
-
-      // Crear gráfica
       const ctx = document.getElementById("grafico").getContext("2d");
-      const chart = new Chart(ctx, {
+      new Chart(ctx, {
         type: 'scatter',
         data: {
           datasets: [
             {
-              label: 'Intersección óptima',
-              data: [{ x: xSol, y: ySol }],
+              label: 'Punto óptimo',
+              data: [{ x, y }],
               backgroundColor: 'red',
               pointRadius: 6
             }
@@ -102,20 +80,12 @@
           plugins: {
             title: {
               display: true,
-              text: `Solución óptima: (${xSol.toFixed(2)}, ${ySol.toFixed(2)}) → Z = ${z.toFixed(2)}`
+              text: `Solución óptima: (${x.toFixed(2)}, ${y.toFixed(2)})  Z = ${Z.toFixed(2)}`
             }
           },
           scales: {
-            x: {
-              type: 'linear',
-              position: 'bottom',
-              min: 0,
-              max: 100
-            },
-            y: {
-              min: 0,
-              max: 100
-            }
+            x: { min: 0, max: 100 },
+            y: { min: 0, max: 100 }
           }
         }
       });
